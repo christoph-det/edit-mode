@@ -51,8 +51,10 @@ While edit mode is active, links are blocked to prevent accidental navigation.
 3. It patches those changes into the original source (source-preserving mode).
 4. If patching is incomplete or source loading failed, it falls back to DOM export.
 
-By default, the saved file removes the `<script ...edit-mode...>` tag.
+By default, the saved file does not remove the `<script ...edit-mode...>` tag.
 This is controlled by `REMOVE_SCRIPT_ON_SAVE` in `edit-mode.js`.
+Fallback saves are marked in the filename with `_fallback_<reason>`.
+For detailed fallback diagnostics in browser console, set `DEBUG_LOGS = true` at the top of `edit-mode.js`.
 
 ## Editable Elements
 

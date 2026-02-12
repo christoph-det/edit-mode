@@ -19,7 +19,7 @@
  *   If source patching succeeds, the saved file is byte-for-byte identical
  *   to the original except for changed text. If patching fails, fallback
  *   save uses the live DOM export.
- *   The script tag is removed from saved output by default.
+ *   The script tag is not removed from saved output by default.
  *
  * https://github.com/chdethloff/edit-mode
  * MIT License
@@ -30,7 +30,8 @@
   const EDITABLE_SELECTORS = 'h1,h2,h3,h4,h5,h6,p,span,li,a,button,label,td,th,blockquote,figcaption,caption,dt,dd,summary,legend';
   const TOOLBAR_ID = 'edit-toolbar';
   const EDIT_CLASS = 'editable-element';
-  const REMOVE_SCRIPT_ON_SAVE = true;
+  const REMOVE_SCRIPT_ON_SAVE = false;
+  const DEBUG_LOGS = false;
 
   let editActive = false;
   let styleEl = null;
@@ -45,11 +46,9 @@
    */
   function snapshotOriginalTexts() {
     document.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
-      if (el.closest('#' + TOOLBAR_ID)) return;
-      if (!isTextNode(el)) return;
-      if (!el.hasAttribute('data-edit-orig')) {
-        el.setAttribute('data-edit-orig', el.textContent);
-      }
+      if (!isEditableTarget(el)) return;
+      // Always refresh baseline for the current edit session.
+      el.setAttribute('data-edit-orig', el.textContent);
     });
   }
 
@@ -62,6 +61,26 @@
     return false;
   }
 
+  function hasEditableDescendant(el) {
+    if (!el || !el.querySelectorAll) return false;
+    const descendants = el.querySelectorAll(EDITABLE_SELECTORS);
+    for (const child of descendants) {
+      if (child === el) continue;
+      if (child.closest('#' + TOOLBAR_ID)) continue;
+      if (isTextNode(child)) return true;
+    }
+    return false;
+  }
+
+  function isEditableTarget(el) {
+    if (!el || !el.matches || !el.matches(EDITABLE_SELECTORS)) return false;
+    if (el.closest('#' + TOOLBAR_ID)) return false;
+    if (!isTextNode(el)) return false;
+    // Prefer leaf editable nodes to avoid overlapping parent/child edits.
+    if (hasEditableDescendant(el)) return false;
+    return true;
+  }
+
   function preventNav(e) { e.preventDefault(); }
 
   function escapeRegex(str) {
@@ -72,6 +91,51 @@
     const bodyOpen = html.match(/<body\b[^>]*>/i);
     if (!bodyOpen || bodyOpen.index == null) return 0;
     return bodyOpen.index + bodyOpen[0].length;
+  }
+
+  function isDebugEnabled() {
+    return DEBUG_LOGS;
+  }
+
+  function previewText(text, maxLen) {
+    const value = String(text || '');
+    const limit = Number.isFinite(maxLen) ? maxLen : 120;
+    return value.length > limit ? value.slice(0, limit) + '...' : value;
+  }
+
+  function countMatchesFromIndex(text, pattern, fromIndex, maxCount) {
+    const regex = new RegExp(pattern, 'g');
+    regex.lastIndex = fromIndex;
+    let count = 0;
+    const hardLimit = Number.isFinite(maxCount) ? maxCount : 10;
+
+    while (count < hardLimit && regex.exec(text)) {
+      count += 1;
+    }
+    return count;
+  }
+
+  function logFallbackDetails(reason, details) {
+    const payload = details || {};
+    console.warn(
+      '[edit-mode] Fallback save:',
+      reason,
+      {
+        edits: payload.editsCount,
+        applied: payload.appliedCount,
+        unmatched: payload.unmatchedCount,
+        sourceLoaded: payload.sourceLoaded
+      }
+    );
+
+    if (!isDebugEnabled()) return;
+
+    console.groupCollapsed('[edit-mode][debug] Fallback reason:', reason);
+    console.log(payload);
+    if (Array.isArray(payload.unmatchedEdits) && payload.unmatchedEdits.length > 0) {
+      console.table(payload.unmatchedEdits);
+    }
+    console.groupEnd();
   }
 
   function clearEditFlagsFromURL() {
@@ -112,8 +176,7 @@
     snapshotOriginalTexts();
 
     document.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
-      if (el.closest('#' + TOOLBAR_ID)) return;
-      if (!isTextNode(el)) return;
+      if (!isEditableTarget(el)) return;
 
       el.setAttribute('contenteditable', 'true');
       el.classList.add(EDIT_CLASS);
@@ -139,6 +202,11 @@
       el.classList.remove(EDIT_CLASS);
     });
 
+    // Prevent stale baselines from leaking into later edit sessions.
+    document.querySelectorAll('[data-edit-orig]').forEach(el => {
+      el.removeAttribute('data-edit-orig');
+    });
+
     document.querySelectorAll('a[data-edit-blocked]').forEach(el => {
       el.removeEventListener('click', preventNav);
       delete el.dataset.editBlocked;
@@ -156,10 +224,11 @@
   function collectEdits() {
     const edits = [];
     document.querySelectorAll('[data-edit-orig]').forEach(el => {
-      const oldText = el.getAttribute('data-edit-orig');
-      const newText = el.textContent;
+      if (!isEditableTarget(el)) return;
+      const oldText = (el.getAttribute('data-edit-orig') || '').trim();
+      const newText = (el.textContent || '').trim();
       if (oldText !== newText) {
-        edits.push({ oldText: oldText.trim(), newText: newText.trim() });
+        edits.push({ oldText, newText });
       }
     });
     return edits;
@@ -174,8 +243,11 @@
     let result = html;
     let appliedCount = 0;
     let cursor = getBodyContentStartIndex(result);
+    const unmatchedEdits = [];
+    const bodyStart = getBodyContentStartIndex(result);
 
-    for (const edit of edits) {
+    for (let idx = 0; idx < edits.length; idx += 1) {
+      const edit = edits[idx];
       if (edit.oldText == null || edit.newText == null || edit.oldText === edit.newText) continue;
 
       const words = edit.oldText.split(/\s+/).filter(Boolean);
@@ -186,8 +258,23 @@
 
       // Replace in source order (from body onward) to reduce wrong matches.
       regex.lastIndex = cursor;
-      const match = regex.exec(result);
-      if (!match || match.index == null) continue;
+      let match = regex.exec(result);
+      if (!match) {
+        // Retry from body start in case edits were applied out of expected order.
+        regex.lastIndex = getBodyContentStartIndex(result);
+        match = regex.exec(result);
+      }
+      if (!match || match.index == null) {
+        unmatchedEdits.push({
+          index: idx,
+          oldText: previewText(edit.oldText),
+          newText: previewText(edit.newText),
+          oldLength: edit.oldText.length,
+          newLength: edit.newText.length,
+          bodyMatchCount: countMatchesFromIndex(result, pattern, bodyStart, 25)
+        });
+        continue;
+      }
 
       const start = match.index;
       const end = start + match[0].length;
@@ -195,7 +282,7 @@
       cursor = start + edit.newText.length;
       appliedCount += 1;
     }
-    return { html: result, appliedCount };
+    return { html: result, appliedCount, unmatchedEdits };
   }
 
   /**
@@ -214,8 +301,15 @@
     }
 
     if (!originalHTML) {
-      alert('Could not load original source. Falling back to DOM export (some formatting may change).');
-      saveFallback();
+      logFallbackDetails('no_source', {
+        sourceLoaded: false,
+        editsCount: edits.length,
+        appliedCount: 0,
+        unmatchedCount: edits.length,
+        protocol: window.location.protocol,
+        href: window.location.href
+      });
+      saveFallback('no_source');
       return;
     }
 
@@ -224,8 +318,14 @@
 
     // If source patching cannot apply all edits, prefer a reliable save over silent data loss.
     if (patched.appliedCount < edits.length) {
-      alert('Could not safely patch all changes into source. Falling back to DOM export.');
-      saveFallback();
+      logFallbackDetails('partial_patch', {
+        sourceLoaded: true,
+        editsCount: edits.length,
+        appliedCount: patched.appliedCount,
+        unmatchedCount: edits.length - patched.appliedCount,
+        unmatchedEdits: patched.unmatchedEdits
+      });
+      saveFallback('partial_patch');
       return;
     }
 
@@ -233,14 +333,14 @@
       html = removeEditModeScript(html);
     }
 
-    downloadFile(html);
+    downloadFile(html, { mode: 'patched' });
     showSaveFeedback();
   }
 
   /**
    * Fallback: uses outerHTML (old behavior). Only if source fetch fails.
    */
-  function saveFallback() {
+  function saveFallback(reason) {
     disableEdit();
     if (toolbarEl) toolbarEl.remove();
     if (styleEl) styleEl.remove();
@@ -258,11 +358,12 @@
     if (selfScript && REMOVE_SCRIPT_ON_SAVE) document.body.appendChild(selfScript);
     enableEdit();
 
-    downloadFile(html);
+    downloadFile(html, { mode: 'fallback', reason });
     showSaveFeedback();
   }
 
-  function downloadFile(html) {
+  function downloadFile(html, meta) {
+    const info = meta || {};
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -272,7 +373,14 @@
     const d = now.toISOString().slice(0, 10).replace(/-/g, '');
     const t = now.toTimeString().slice(0, 5).replace(':', '');
     const basename = document.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '');
-    a.download = (basename || 'page') + '_' + d + '_' + t + '.html';
+    let suffix = '';
+    if (info.mode === 'fallback') {
+      suffix = '_fallback';
+      if (info.reason) {
+        suffix += '_' + String(info.reason).replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+      }
+    }
+    a.download = (basename || 'page') + '_' + d + '_' + t + suffix + '.html';
     a.click();
     URL.revokeObjectURL(url);
   }
