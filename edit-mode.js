@@ -32,6 +32,7 @@
   const EDIT_CLASS = 'editable-element';
   const REMOVE_SCRIPT_ON_SAVE = false;
   const DEBUG_LOGS = false;
+  const DIRECT_TEXT_ATTR = 'data-edit-direct-text';
 
   let editActive = false;
   let styleEl = null;
@@ -59,6 +60,38 @@
       if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return true;
     }
     return false;
+  }
+
+  function hasElementChildren(el) {
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) return true;
+    }
+    return false;
+  }
+
+  function wrapDirectTextNodes() {
+    document.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
+      if (el.closest('#' + TOOLBAR_ID)) return;
+      if (!hasElementChildren(el)) return;
+
+      const children = Array.from(el.childNodes);
+      children.forEach(node => {
+        if (node.nodeType !== Node.TEXT_NODE) return;
+        if (!node.textContent || !node.textContent.trim()) return;
+
+        const span = document.createElement('span');
+        span.setAttribute(DIRECT_TEXT_ATTR, 'true');
+        span.textContent = node.textContent;
+        if (node.parentNode) node.parentNode.replaceChild(span, node);
+      });
+    });
+  }
+
+  function unwrapDirectTextNodes() {
+    document.querySelectorAll('span[' + DIRECT_TEXT_ATTR + ']').forEach(span => {
+      const textNode = document.createTextNode(span.textContent || '');
+      if (span.parentNode) span.parentNode.replaceChild(textNode, span);
+    });
   }
 
   function hasEditableDescendant(el) {
@@ -173,6 +206,7 @@
   function enableEdit() {
     if (editActive) return;
     editActive = true;
+    wrapDirectTextNodes();
     snapshotOriginalTexts();
 
     document.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
@@ -206,6 +240,8 @@
     document.querySelectorAll('[data-edit-orig]').forEach(el => {
       el.removeAttribute('data-edit-orig');
     });
+
+    unwrapDirectTextNodes();
 
     document.querySelectorAll('a[data-edit-blocked]').forEach(el => {
       el.removeEventListener('click', preventNav);
