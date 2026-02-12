@@ -45,7 +45,7 @@ Supported tags:
 - Source-first save: text changes are patched into the original HTML source, not exported from `document.outerHTML`.
 - Script removal on save: the `<script ...edit-mode...>` tag is removed from the downloaded file.
 - Navigation protection: links are disabled while edit mode is active.
-- Local-file support: works on `file://` URLs (uses `XMLHttpRequest` to read source).
+- Local-file support: attempts to work on `file://` URLs (uses `XMLHttpRequest` to read source), but browser security rules can block access in some environments.
 
 ## Save Strategy
 
@@ -59,4 +59,4 @@ Supported tags:
 
 - Text-only editor: no element add/remove, layout editing, or style editing.
 - Duplicate source text: when identical text appears multiple times, replacement targets the first match.
-- Source access required: if original source cannot be fetched (for example due to CORS), fallback save uses DOM export.
+- Source access required: if original source cannot be fetched (for example due to CORS, strict local-file browser policy, or some `file://` contexts), fallback save uses DOM export.

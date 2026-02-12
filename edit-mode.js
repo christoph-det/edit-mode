@@ -66,6 +66,12 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  function getBodyContentStartIndex(html) {
+    const bodyOpen = html.match(/<body\b[^>]*>/i);
+    if (!bodyOpen || bodyOpen.index == null) return 0;
+    return bodyOpen.index + bodyOpen[0].length;
+  }
+
   function clearEditFlagsFromURL() {
     let changed = false;
     const url = new URL(window.location.href);
@@ -82,7 +88,11 @@
 
     if (changed) {
       const nextURL = url.pathname + url.search + url.hash;
-      window.history.replaceState(null, '', nextURL);
+      try {
+        window.history.replaceState(null, '', nextURL);
+      } catch (_) {
+        // Some contexts (for example strict file:// handling) can block replaceState.
+      }
     }
   }
 
@@ -161,22 +171,27 @@
   function applyEditsToSource(html, edits) {
     let result = html;
     let appliedCount = 0;
+    let cursor = getBodyContentStartIndex(result);
 
     for (const edit of edits) {
-      if (!edit.oldText || !edit.newText || edit.oldText === edit.newText) continue;
+      if (edit.oldText == null || edit.newText == null || edit.oldText === edit.newText) continue;
 
       const words = edit.oldText.split(/\s+/).filter(Boolean);
       if (words.length === 0) continue;
 
       const pattern = words.map(escapeRegex).join('[\\s\\n]+');
-      const regex = new RegExp(pattern);
+      const regex = new RegExp(pattern, 'g');
 
-      // Replace only first occurrence to avoid unintended replacements
-      const next = result.replace(regex, edit.newText);
-      if (next !== result) {
-        appliedCount += 1;
-        result = next;
-      }
+      // Replace in source order (from body onward) to reduce wrong matches.
+      regex.lastIndex = cursor;
+      const match = regex.exec(result);
+      if (!match || match.index == null) continue;
+
+      const start = match.index;
+      const end = start + match[0].length;
+      result = result.slice(0, start) + edit.newText + result.slice(end);
+      cursor = start + edit.newText.length;
+      appliedCount += 1;
     }
     return { html: result, appliedCount };
   }
@@ -212,7 +227,8 @@
       return;
     }
 
-    html = removeEditModeScript(html);
+    // remove or include edit mode script
+    // html = removeEditModeScript(html);
 
     downloadFile(html);
     showSaveFeedback();
