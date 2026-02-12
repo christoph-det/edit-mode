@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>edit-mode.js Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem 6rem;
+            color: #1a1a2e;
+            line-height: 1.6;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; color: #4f46e5; }
+        p { margin-bottom: 1rem; color: #444; }
+        .hero { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid #eee; }
+        .badge {
+            display: inline-block;
+            background: #4f46e5;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .card {
+            background: #f8f7ff;
+            border: 1px solid #e8e6f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .hint {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+        a { color: #4f46e5; }
+        ul { margin: 0.5rem 0 1rem 1.5rem; color: #444; }
+        li { margin-bottom: 0.25rem; }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <span class="badge">Try it now — press Ctrl+E</span>
+        <h1>edit-mode.js</h1>
+        <p>Drop-in inline text editor for static HTML pages. Click any text below to edit it, then save a clean file.</p>
+    </div>
+
+    <div class="hint">
+        <strong>How to try:</strong> Press <kbd>Ctrl+E</kbd> (or <kbd>Cmd+E</kbd> on Mac) to activate edit mode. Click any text to change it. Click "Save as new file" to download your edited version.
+    </div>
+
+    <h2>About this project</h2>
+    <p>This is a demo page for edit-mode.js. Every piece of text you see here is editable. Go ahead and change this paragraph to whatever you want.</p>
+
+    <h2>Features</h2>
+    <div class="card">
+        <p><strong>Source-preserving saves.</strong> Unlike other contenteditable tools, edit-mode.js patches your text changes into the original HTML source. No DOM artifacts, no Tailwind dumps, no browser extension pollution.</p>
+    </div>
+    <div class="card">
+        <p><strong>Zero dependencies.</strong> One script tag, about 8 KB. No build step, no npm install, no configuration. It just works.</p>
+    </div>
+    <div class="card">
+        <p><strong>Works on local files.</strong> Open any HTML file from your desktop, add the script tag, and edit. No server required.</p>
+    </div>
+
+    <h2>Perfect for</h2>
+    <ul>
+        <li>Client handoffs — let non-technical people edit copy</li>
+        <li>Quick prototyping — iterate on text without a code editor</li>
+        <li>Content reviews — stakeholders edit and send the file back</li>
+        <li>Landing page tweaks — test different headlines in the browser</li>
+    </ul>
+
+    <h2>Get started</h2>
+    <p>Add this line before your closing body tag and you're done:</p>
+    <p><code>&lt;script src="edit-mode.js"&gt;&lt;/script&gt;</code></p>
+
+    <script src="edit-mode.js"></script>
+</body>
+
+</html>
