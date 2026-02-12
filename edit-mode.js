@@ -86,9 +86,16 @@
     }
   }
 
+  function urlWantsEditMode() {
+    const hash = window.location.hash.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    return hash === '#edit' || params.get('edit') === 'true';
+  }
+
   // ── Enable / Disable ────────────────────────────────────
 
   function enableEdit() {
+    if (editActive) return;
     editActive = true;
     snapshotOriginalTexts();
 
@@ -108,10 +115,11 @@
     });
 
     ensureToolbar();
-    toolbarEl.style.display = 'block';
+    if (toolbarEl) toolbarEl.style.display = 'block';
   }
 
   function disableEdit() {
+    if (!editActive) return;
     editActive = false;
 
     document.querySelectorAll('[contenteditable]').forEach(el => {
@@ -243,6 +251,7 @@
 
   function ensureToolbar() {
     if (toolbarEl) return;
+    if (!document.body) return;
 
     toolbarEl = document.createElement('div');
     toolbarEl.id = TOOLBAR_ID;
@@ -270,7 +279,7 @@
           \u2715 Exit
         </button>
         <div style="padding-left:10px;border-left:1px solid rgba(255,255,255,.1);">
-          <span style="color:rgba(255,255,255,.3);font-size:11px;">Ctrl+E \u00b7 #edit in URL</span>
+          <span style="color:rgba(255,255,255,.3);font-size:11px;">Ctrl+E/Ctrl+Shift+E \u00b7 #edit in URL</span>
         </div>
       </div>`;
     document.body.appendChild(toolbarEl);
@@ -340,20 +349,40 @@
   // ── Init ────────────────────────────────────────────────
 
   fetchOriginalSource();
-  injectStyles();
-  ensureToolbar();
 
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-      e.preventDefault();
-      editActive ? disableEdit() : enableEdit();
+  function initWhenDOMReady() {
+    injectStyles();
+    ensureToolbar();
+
+    document.addEventListener('keydown', (e) => {
+      const key = (e.key || '').toLowerCase();
+      const isToggleCombo =
+        (e.ctrlKey || e.metaKey) && (key === 'e' || e.code === 'KeyE');
+
+      // Also support Ctrl/Cmd+Shift+E as a fallback in browsers that reserve Ctrl/Cmd+E.
+      if (isToggleCombo) {
+        e.preventDefault();
+        editActive ? disableEdit() : enableEdit();
+      }
+    });
+
+    window.addEventListener('hashchange', () => {
+      if (urlWantsEditMode()) {
+        enableEdit();
+      } else {
+        disableEdit();
+      }
+    });
+
+    if (urlWantsEditMode()) {
+      enableEdit();
     }
-  });
+  }
 
-  const hash = window.location.hash.toLowerCase();
-  const params = new URLSearchParams(window.location.search);
-  if (hash === '#edit' || params.get('edit') === 'true') {
-    enableEdit();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWhenDOMReady, { once: true });
+  } else {
+    initWhenDOMReady();
   }
 
 })();

@@ -16,7 +16,7 @@ Add the script before `</body>`:
 
 Enable edit mode with one of the following:
 
-- `Ctrl+E` / `Cmd+E`
+- `Ctrl+E` / `Cmd+E` (or `Ctrl+Shift+E` / `Cmd+Shift+E` as fallback)
 - `#edit` URL hash
 - `?edit=true` query parameter
 
@@ -27,6 +27,11 @@ When edit mode is active:
 - Click `Exit` to leave edit mode.
 
 On exit, `#edit` and `?edit=true` are removed from the URL.
+
+Notes:
+
+- Some browsers reserve `Ctrl+E` / `Cmd+E` for browser UI, so the fallback shortcut may be more reliable.
+- Changing the hash to `#edit` after page load activates edit mode without a full reload.
 
 ## Editable Elements
 
