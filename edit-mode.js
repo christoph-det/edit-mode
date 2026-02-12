@@ -160,6 +160,8 @@
    */
   function applyEditsToSource(html, edits) {
     let result = html;
+    let appliedCount = 0;
+
     for (const edit of edits) {
       if (!edit.oldText || !edit.newText || edit.oldText === edit.newText) continue;
 
@@ -170,9 +172,13 @@
       const regex = new RegExp(pattern);
 
       // Replace only first occurrence to avoid unintended replacements
-      result = result.replace(regex, edit.newText);
+      const next = result.replace(regex, edit.newText);
+      if (next !== result) {
+        appliedCount += 1;
+        result = next;
+      }
     }
-    return result;
+    return { html: result, appliedCount };
   }
 
   /**
@@ -185,13 +191,27 @@
   function saveFile() {
     const edits = collectEdits();
 
+    if (edits.length === 0) {
+      alert('No text changes detected.');
+      return;
+    }
+
     if (!originalHTML) {
       alert('Could not load original source. Falling back to DOM export (some formatting may change).');
       saveFallback();
       return;
     }
 
-    let html = applyEditsToSource(originalHTML, edits);
+    const patched = applyEditsToSource(originalHTML, edits);
+    let html = patched.html;
+
+    // If source patching cannot apply all edits, prefer a reliable save over silent data loss.
+    if (patched.appliedCount < edits.length) {
+      alert('Could not safely patch all changes into source. Falling back to DOM export.');
+      saveFallback();
+      return;
+    }
+
     html = removeEditModeScript(html);
 
     downloadFile(html);
