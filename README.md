@@ -6,7 +6,7 @@ Inline text editing for static HTML pages.
 
 ## Demo Video
 
-<video src="https://github.com/user-attachments/assets/b3b39c90-cb71-45da-a591-b288171c82c1" controls muted playsinline width="100%"></video>
+<video src="https://github.com/user-attachments/assets/b3b39c90-cb71-45da-a591-b288171c82c1" autoplay loop muted playsinline width="100%"></video>
 
 
 ## Installation
