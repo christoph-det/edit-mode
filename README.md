@@ -4,6 +4,11 @@ Inline text editing for static HTML pages.
 
 `edit-mode.js` enables in-browser editing for common text elements and downloads a new HTML file with your text changes.
 
+## Demo Video
+
+<video src="https://github.com/user-attachments/assets/b3b39c90-cb71-45da-a591-b288171c82c1" controls muted playsinline width="100%"></video>
+
+
 ## Installation
 
 Add the script before `</body>`:
