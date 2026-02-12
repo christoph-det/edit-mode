@@ -70,9 +70,9 @@ Supported tags:
 - If identical text appears multiple times, matching may target a different instance than expected.
 - Loading original source is required for source-preserving mode.
 
-## `file://` and Fetching Source
+## Fetching Source
 
-For `file://` URLs, the script uses `XMLHttpRequest` to read the current file.
+For local `file://` URLs, the script uses `XMLHttpRequest` to read the current file.
 Depending on browser security settings, this can fail in some environments.
 
 If loading original source fails (for example `file://` restrictions or CORS-like policy behavior), save falls back to DOM export.
@@ -102,22 +102,6 @@ What it does:
 
 If some edits cannot be mapped, the script prints a warning and exits with code `2`.
 
-## GitHub Pages Demo
-
-Deployment workflow: `.github/workflows/deploy-demo-pages.yml`
-
-1. Push the repository to GitHub.
-2. In repository settings, set `Pages -> Source` to `GitHub Actions`.
-3. Push to `main` (or trigger the workflow manually).
-4. Open `/demo.html` on your Pages URL.
-
-Example:
-`https://<user>.github.io/<repo>/demo.html`
-
-## Cache Note (Pages)
-
-If behavior looks outdated after deployment, force refresh (`Cmd/Ctrl+Shift+R`).
-For stronger cache busting, version the script URL in `demo.html`, for example:
 
 ```html
 <script src="edit-mode.js?v=2026-02-12-1"></script>
