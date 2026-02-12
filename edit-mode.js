@@ -7,18 +7,19 @@
  *
  * Activate (3 ways):
  *   1. Ctrl+E (Windows/Linux) / Cmd+E (Mac)
- *   2. Append #edit to the URL  → works on local file:// URLs too
- *   3. Append ?edit=true        → works on hosted sites (http/https)
+ *      Fallback: Ctrl+Shift+E / Cmd+Shift+E in browsers reserving Ctrl/Cmd+E
+ *   2. Append #edit to the URL
+ *   3. Append ?edit=true
  *
  * Deactivate: Ctrl+E / Cmd+E again, or click the ✕ button
  *
  * How it works:
  *   On load, the original HTML source is fetched and kept in memory.
  *   Edits are collected as text diffs and patched into the original source.
- *   The saved file is byte-for-byte identical to the original — except
- *   for the text you changed. No DOM artifacts, no injected styles,
- *   no Tailwind dumps, no browser extension pollution.
- *   The script tag removes itself from the saved output.
+ *   If source patching succeeds, the saved file is byte-for-byte identical
+ *   to the original except for changed text. If patching fails, fallback
+ *   save uses the live DOM export.
+ *   The script tag is removed from saved output by default.
  *
  * https://github.com/chdethloff/edit-mode
  * MIT License
@@ -29,6 +30,7 @@
   const EDITABLE_SELECTORS = 'h1,h2,h3,h4,h5,h6,p,span,li,a,button,label,td,th,blockquote,figcaption,caption,dt,dd,summary,legend';
   const TOOLBAR_ID = 'edit-toolbar';
   const EDIT_CLASS = 'editable-element';
+  const REMOVE_SCRIPT_ON_SAVE = true;
 
   let editActive = false;
   let styleEl = null;
@@ -227,8 +229,9 @@
       return;
     }
 
-    // remove or include edit mode script
-    // html = removeEditModeScript(html);
+    if (REMOVE_SCRIPT_ON_SAVE) {
+      html = removeEditModeScript(html);
+    }
 
     downloadFile(html);
     showSaveFeedback();
@@ -246,13 +249,13 @@
     const selfScript = Array.from(scripts).find(s =>
       s.src && s.src.includes('edit-mode')
     );
-    if (selfScript) selfScript.remove();
+    if (selfScript && REMOVE_SCRIPT_ON_SAVE) selfScript.remove();
 
     const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
 
     injectStyles();
     document.body.appendChild(toolbarEl);
-    if (selfScript) document.body.appendChild(selfScript);
+    if (selfScript && REMOVE_SCRIPT_ON_SAVE) document.body.appendChild(selfScript);
     enableEdit();
 
     downloadFile(html);
